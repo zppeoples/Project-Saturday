@@ -112,3 +112,7 @@ body[data-team-profile] {
 .line-board td:first-child { width: 51%; }
 .line-sample { display: block; font-weight: 400; }
 .line-method { margin-top: 12px; }
+
+/* Playoff markets */
+.playoff-market-head,.playoff-market-row{display:grid;grid-template-columns:minmax(95px,1fr) minmax(85px,.8fr) minmax(75px,.7fr);gap:8px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.playoff-market-head{color:var(--muted);font-size:11px;text-transform:uppercase}.playoff-market-row span{text-align:right;font-variant-numeric:tabular-nums}.playoff-market-row small{display:block}.playoff-total{text-align:right}.playoff-scroll{overflow-x:auto}.playoff-scroll table{min-width:360px}.playoff-game h2{font-size:23px}.playoff-market-head span:not(:first-child){text-align:right}
