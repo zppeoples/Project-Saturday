@@ -26,16 +26,21 @@ const activeStandings = standings => Object.fromEntries(Object.entries(standings
   .map(([conference, rows]) => [conference, rows.filter(([team]) => isActiveTeam(team))]));
 
 const seed = {
-  week: 13,
+  week: 14,
   standingsWeek: 13,
   weekLabels: {14: 'Conference Championships'},
   standings: activeStandings(conf),
   rankings: {},
-  stories: [],
+  stories: [
+    {id: '2027-american-champions', week: 14, type: 'Featured', title: 'Utah takes the American crown', body: 'Utah defeated Boise State 47–14 in the American Championship. The Utes followed their 38–7 Week 13 win over Colorado with a 33-point victory in the title game.'},
+    {id: '2027-acc-champions', week: 14, type: 'Headline', title: 'Mississippi State wins the ACC', body: 'Mississippi State defeated Syracuse 28–7 in the ACC Championship, following a 56–13 win over Ole Miss in Week 13.'},
+    {id: '2027-big12-champions', week: 14, type: 'Headline', title: 'Houston claims the Big 12', body: 'Houston defeated Pittsburgh 31–21 in the Big 12 Championship after beating Kansas State 28–10 in Week 13.'},
+    {id: '2027-week13-final', week: 13, type: 'Headline', title: 'Week 13: UCF edges Duke; Syracuse rolls', body: 'UCF edged Duke 27–26, Syracuse beat Rutgers 34–9, and Wisconsin defeated Minnesota 56–31. All 21 unique Week 13 finals from the submitted conference schedules are now on the Schedule tab.'},
+  ],
   games: Object.entries(schedule).flatMap(([week, games]) => games.map(
     ([conference, away, home, kickoff, label, scores, resultMethod, overtime = false, siteUnconfirmed = false], i) => ({
       id: `2027-w${week}-${i + 1}`, week: Number(week), conference, away, home, kickoff, label, scores, resultMethod, overtime, siteUnconfirmed,
-      featured: week === '11' && ['Arizona State', 'Baylor', 'UCF'].includes(away),
+      featured: week === '14' || (week === '11' && ['Arizona State', 'Baylor', 'UCF'].includes(away)),
     }))),
 };
 
@@ -124,7 +129,7 @@ function teamProfileStats(team, conference) {
           <div><dt>${safe(label)}</dt><dd>${safe(rows[team][column].toLocaleString('en-US'))}</dd></div>`).join('')}
         </dl>
       </details>`).join('');
-    return `<p class="muted">Week ${snapshot.week} team stats</p>${groups}`;
+    return `<p class="muted">${safe(snapshot.label || weekName(snapshot.week))} · Team stats</p>${groups}`;
   }
   const legacy = stats[team];
   if (!legacy) return '<p class="muted">Team stats are pending.</p>';
@@ -242,7 +247,7 @@ function rankingView(compact) {
   if (ranked.length) {
     const visible = compact ? ranked.slice(0, 5) : ranked;
     return selector + `<div class="tag">${safe(weekName(week))} · ${provisional ? 'Provisional PP BCS™' : 'Commissioner rankings'}</div>
-      ${provisional ? '<p class="muted">Week 13 in progress. Includes the verified standings snapshot and four reported finals.</p>' : ''}
+      ${provisional ? '<p class="muted">Week 13 results updated. Uses the last verified standings snapshot and available Weeks 9–13 finals; conference championship results are excluded.</p>' : ''}
       <ol>${visible.map(({team, score}) => `<li>${teamButton(team)}${!compact && provisional
         ? ` <small>· ${score.toFixed(1)} BCS</small>` : ''}</li>`).join('')}</ol>
       ${compact ? '<button onclick="go(\'Rankings\')">View rankings →</button>' : ''}
