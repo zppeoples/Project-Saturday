@@ -43,11 +43,20 @@ function playoffModel() {
 }
 const playoffRatings=playoffModel();
 function normalCDF(x){const z=Math.abs(x)/Math.SQRT2,t=1/(1+.3275911*z);const erf=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-z*z);return .5*(1+Math.sign(x)*erf);}
+// A cautious blend prevents a short recent game log from dominating the bracket résumé.
+// Active user teams come from the commissioner's existing league roster.
+function playoffPower(t) {
+  const r=playoffRatings.ratings.get(t.team)||{attack:0,defense:0};
+  const recentPower=r.attack-r.defense;
+  const seedPrior=(13-t.seed)*1.1;
+  const userTeam=isActiveTeam(t.team);
+  return .35*recentPower+.65*seedPrior-(userTeam?0:7);
+}
 function playoffLine(a,b,home=false){
   const away=playoffBySeed.get(a),host=playoffBySeed.get(b),ra=playoffRatings.ratings.get(away.team)||{attack:0,defense:0},rb=playoffRatings.ratings.get(host.team)||{attack:0,defense:0};
-  const ap=Math.max(7,playoffRatings.mean+ra.attack+rb.defense-(home?1.25:0));
-  const hp=Math.max(7,playoffRatings.mean+rb.attack+ra.defense+(home?1.25:0));
-  return {a,b,margin:Math.round((hp-ap)*2)/2,total:Math.round((hp+ap)*2)/2,p:Math.max(.01,Math.min(.99,normalCDF((ap-hp)/14))),limited:!playoffRatings.baseline.has(away.team)||!playoffRatings.baseline.has(host.team)};
+  const projectedTotal=Math.max(28,2*playoffRatings.mean+ra.attack+ra.defense+rb.attack+rb.defense);
+  const difference=playoffPower(host)-playoffPower(away)+(home?2.5:0);
+  return {a,b,margin:Math.round(difference*2)/2,total:Math.round(projectedTotal*2)/2,p:Math.max(.01,Math.min(.99,normalCDF(-difference/18))),limited:!playoffRatings.baseline.has(away.team)||!playoffRatings.baseline.has(host.team)};
 }
 function americanOdds(p){const amount=p>=.5?-100*p/(1-p):100*(1-p)/p;const rounded=Math.max(100,Math.round(Math.abs(amount)/5)*5);return (amount<0?'−':'+')+rounded.toLocaleString('en-US');}
 function spreadText(n){return n===0?'PK':(n>0?'+':'−')+Math.abs(n).toFixed(1);}
@@ -71,5 +80,5 @@ function playoffOddsView(){
  +`<section class="card"><h2>Round 1 · Campus games</h2><p class="muted">Spreads and totals priced at −110 each side.</p></section><div class="grid">${playoffPods.map(p=>playoffMarket(playoffLine(p.away,p.home,true),'First round · campus')).join('')}</div>`
  +`<section class="card"><h2>Round 2 · Hypothetical quarterfinals</h2><p class="muted">Both possible opponents for every bye team. Each projection assumes today’s ratings; it does not predict injuries or changes after Round 1.</p></section>`
  +playoffPods.map(p=>`<section class="card"><h3>${safe(p.bowl)} · ${safe(playoffName(p.bye))} awaits</h3></section><div class="grid">${[p.away,p.home].map(s=>playoffMarket(playoffLine(s,p.bye),p.bowl+' · neutral field')).join('')}</div>`).join('')
- +card('How these odds are built',`<p>Full-season points scored and allowed provide a shrunk starting rating. Available Weeks 9–14 scores adjust offense and defense for opponent strength, with recent games weighted more heavily and margins capped at 28 points. Force wins are excluded from the game fit; fair sims and interrupted games carry less weight. Season totals and recent results overlap, so this is a heuristic projection rather than a calibrated betting system.</p><p>Campus home field is worth 2.5 points. A 14-point game-margin uncertainty converts projected score differences into win chances. Championship chances follow the exact bracket, including each bye and every potential opponent. Miami has no supplied season statistics and Michigan has only one supplied game; their estimates are especially uncertain. No roster ratings, injury reports, weather, pace, or betting-market action were supplied.</p><p>The top semifinal pairs the Rose and Peach winners; the bottom pairs the Fiesta and Sugar winners. The national championship is in New Orleans at Caesars Superdome.</p>`);
+ +card('How these odds are built',`<p>Full-season points scored and allowed provide a shrunk starting rating. Available Weeks 9–14 scores adjust offense and defense for opponent strength, with recent games weighted more heavily and margins capped at 28 points. The final strength rating blends 35% scoring-model strength with a 65% seed-based résumé prior, so a single blowout does not overwhelm a team’s playoff position. Force wins are excluded from the game fit; fair sims and interrupted games carry less weight. Season totals and recent results overlap, so this is a heuristic projection rather than a calibrated betting system.</p><p>Campus home field is worth 2.5 points. An 18-point game-margin uncertainty keeps win probabilities less certain than the original model. CPU teams outside the commissioner’s active user roster receive a seven-point strength discount, an editorial dynasty assumption rather than a measured real-world effect. Championship chances follow the exact bracket, including each bye and every potential opponent. Miami has no supplied season statistics and Michigan has only one supplied game; their estimates are especially uncertain. No roster ratings, injury reports, weather, pace, or betting-market action were supplied.</p><p>The top semifinal pairs the Rose and Peach winners; the bottom pairs the Fiesta and Sugar winners. The national championship is in New Orleans at Caesars Superdome.</p>`);
 }
