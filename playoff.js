@@ -1,4 +1,4 @@
-// Frozen pre-playoff snapshot. In-game seeds/records are commissioner-provided.
+// Selection seeds and records are frozen; current bracket advances only reported winners.
 const playoffField = [
   {seed:1,team:'Utah',record:'12–1'}, {seed:2,team:'Mississippi State',record:'13–0'},
   {seed:3,team:'Boise State',record:'12–1'}, {seed:4,team:'Georgia Tech',record:'10–2'},
@@ -24,9 +24,9 @@ function playoffModel() {
   const priors = new Map([...ratings].map(([t,r])=>[t,{...r}]));
   const rows=[]; const seen=new Set();
   for(const g of seed.games) {
-    if(g.week>14||!g.scores||g.resultMethod==='Force win')continue;
+    if(g.week>15||!g.scores||g.resultMethod==='Force win')continue;
     const key=[g.week,...[g.away,g.home].sort()].join('|');if(seen.has(key))continue;seen.add(key);
-    const weight=(g.resultMethod==='Fair sim'?.25:g.label==='Interrupted user matchup'?.45:.8)*.9**(14-g.week);
+    const weight=(g.resultMethod==='Fair sim'?.25:g.label==='Interrupted user matchup'?.45:.8)*.9**(15-g.week);
     for(const t of [g.away,g.home])if(!ratings.has(t)){ratings.set(t,{attack:0,defense:0});priors.set(t,{attack:0,defense:0});}
     const sum=g.scores[0]+g.scores[1],margin=Math.max(-28,Math.min(28,g.scores[0]-g.scores[1]));
     const venue=g.siteUnconfirmed?0:1.25;
@@ -71,14 +71,29 @@ function playoffMarket(line,context){
     ${limited?'<p class="muted">Low confidence: Miami has no supplied season stats; Michigan has only one supplied result. Missing season data uses a neutral baseline.</p>':''}</article>`;
 }
 function advanceDistribution(left,right,home=false){const out={};for(const [a,pa]of Object.entries(left))for(const [b,pb]of Object.entries(right)){const p=playoffLine(Number(a),Number(b),home).p;out[a]=(out[a]||0)+pa*pb*p;out[b]=(out[b]||0)+pa*pb*(1-p);}return out;}
-function championshipProbabilities(){const quarters=playoffPods.map(p=>advanceDistribution(advanceDistribution({[p.away]:1},{[p.home]:1},true),{[p.bye]:1}));return advanceDistribution(advanceDistribution(quarters[0],quarters[1]),advanceDistribution(quarters[2],quarters[3]));}
-const playoffTitleProbabilities=championshipProbabilities();
+function reportedPodResult(pod) {
+  const away=playoffBySeed.get(pod.away).team,home=playoffBySeed.get(pod.home).team;
+  return leagueData.games.find(g=>g.week===15&&g.scores&&g.away===away&&g.home===home);
+}
+function firstRoundDistribution(pod) {
+  const game=reportedPodResult(pod);
+  if(game)return {[game.scores[0]>game.scores[1]?pod.away:pod.home]:1};
+  return advanceDistribution({[pod.away]:1},{[pod.home]:1},true);
+}
+function championshipProbabilities(){const quarters=playoffPods.map(p=>advanceDistribution(firstRoundDistribution(p),{[p.bye]:1}));return advanceDistribution(advanceDistribution(quarters[0],quarters[1]),advanceDistribution(quarters[2],quarters[3]));}
+function firstRoundCard(pod) {
+  const game=reportedPodResult(pod);
+  if(!game)return playoffMarket(playoffLine(pod.away,pod.home,true),'First round · campus · pending');
+  const historical=pod.home===5?'Published pregame: Houston −19 · HOU −840 / MICH +560 · Total 54.5. Houston covered; under.':'Published pregame: ASU −15 · ASU −505 / WVU +375 · Total 48. WVU won outright; under. These archived prices incorrectly applied a CPU penalty to WVU; current projections use its corrected user status.';
+  return card('First round · FINAL',`<h3>${safe(gameResult(game))}</h3><p>${teamButton(game.scores[0]>game.scores[1]?game.away:game.home)} advances to the ${safe(pod.bowl)}.</p><p class="muted">${safe(historical)}</p>${gameBoxScore(game)}`);
+}
 function playoffOddsView(){
- const futures=playoffField.slice().sort((a,b)=>playoffTitleProbabilities[b.seed]-playoffTitleProbabilities[a.seed]);
- return card('2027 Playoff Odds',`<p>Four first-round games. Eight possible quarterfinal matchups. One national champion.</p><div class="notice">Projected dynasty lines · Frozen after conference championships · No live sportsbook prices</div><p class="muted">First round assumes the higher seed hosts. Quarterfinals and later rounds use neutral fields. Dates and kickoff times have not been supplied.</p>`)
- +card('National championship futures',`<p class="muted">Outright winner · American odds · All 12 teams, including four byes</p><div class="playoff-scroll"><table><thead><tr><th>Team</th><th>Record</th><th>Title odds</th><th>Model chance</th></tr></thead><tbody>${futures.map(t=>`<tr><td>${safe(playoffName(t.seed))}${t.seed<=4?'<small class="line-sample">First-round bye</small>':''}</td><td>${t.record}</td><td><b>${americanOdds(playoffTitleProbabilities[t.seed]*1.12)}</b></td><td>${(100*playoffTitleProbabilities[t.seed]).toFixed(1)}%</td></tr>`).join('')}</tbody></table></div><p class="muted">Model chances total 100% before rounding. Displayed futures odds include a 12% market margin; moneylines include approximately 4.5%. These are estimates, not guarantees.</p>`)
- +`<section class="card"><h2>Round 1 · Campus games</h2><p class="muted">Spreads and totals priced at −110 each side.</p></section><div class="grid">${playoffPods.map(p=>playoffMarket(playoffLine(p.away,p.home,true),'First round · campus')).join('')}</div>`
- +`<section class="card"><h2>Round 2 · Hypothetical quarterfinals</h2><p class="muted">Both possible opponents for every bye team. Each projection assumes today’s ratings; it does not predict injuries or changes after Round 1.</p></section>`
- +playoffPods.map(p=>`<section class="card"><h3>${safe(p.bowl)} · ${safe(playoffName(p.bye))} awaits</h3></section><div class="grid">${[p.away,p.home].map(s=>playoffMarket(playoffLine(s,p.bye),p.bowl+' · neutral field')).join('')}</div>`).join('')
- +card('How these odds are built',`<p>Full-season points scored and allowed provide a shrunk starting rating. Available Weeks 9–14 scores adjust offense and defense for opponent strength, with recent games weighted more heavily and margins capped at 28 points. The final strength rating blends 35% scoring-model strength with a 65% seed-based résumé prior, so a single blowout does not overwhelm a team’s playoff position. Force wins are excluded from the game fit; fair sims and interrupted games carry less weight. Season totals and recent results overlap, so this is a heuristic projection rather than a calibrated betting system.</p><p>Campus home field is worth 2.5 points. An 18-point game-margin uncertainty keeps win probabilities less certain than the original model. CPU teams outside the commissioner’s active user roster receive a seven-point strength discount, an editorial dynasty assumption rather than a measured real-world effect. Championship chances follow the exact bracket, including each bye and every potential opponent. Miami has no supplied season statistics and Michigan has only one supplied game; their estimates are especially uncertain. No roster ratings, injury reports, weather, pace, or betting-market action were supplied.</p><p>The top semifinal pairs the Rose and Peach winners; the bottom pairs the Fiesta and Sugar winners. The national championship is in New Orleans at Caesars Superdome.</p>`);
+ const probabilities=championshipProbabilities();
+ const futures=playoffField.slice().sort((a,b)=>(probabilities[b.seed]||0)-(probabilities[a.seed]||0));
+ return card('2027 Playoff Odds',`<p>Houston and West Virginia advance. Two first-round games remain pending.</p><div class="notice">Updated after the reported first-round finals · West Virginia classified as a USER team</div><p class="muted">Current projections include available Weeks 9–15 finals and the corrected user roster. First round assumes the higher seed hosts; quarterfinals and later rounds use neutral fields. Dates and kickoff times have not been supplied.</p>`)
+ +card('National championship futures',`<p class="muted">Outright winner · American odds · Eliminated teams remain visible</p><div class="data-scroll"><table><thead><tr><th>Team</th><th>Record</th><th>Title odds</th><th>Model chance</th></tr></thead><tbody>${futures.map(t=>{const p=probabilities[t.seed]||0;return `<tr><td>${teamButton(t.team)}<small class="line-sample">#${t.seed}${p===0?' · Eliminated':t.seed<=4?' · First-round bye':''}</small></td><td>${currentTeamRecord(t.team)}</td><td><b>${p===0?'Eliminated':americanOdds(p*1.12)}</b></td><td>${(100*p).toFixed(1)}%</td></tr>`;}).join('')}</tbody></table></div><p class="muted">Model chances total 100% before rounding. Futures include a 12% market margin; moneylines approximately 4.5%. Estimates for the remaining bracket, not live sportsbook prices.</p>`)
+ +`<section class="card"><h2>Round 1 · Results & remaining games</h2><p class="muted">Published prices for completed games are archived as originally displayed; pending games use current projections.</p></section><div class="grid">${playoffPods.map(firstRoundCard).join('')}</div>`
+ +`<section class="card"><h2>Round 2 · Quarterfinals</h2><p class="muted">Confirmed matchups are shown where a first-round final has been supplied. Both possible opponents remain listed for pending games.</p></section>`
+ +playoffPods.map(p=>{const result=reportedPodResult(p),opponents=result?[result.scores[0]>result.scores[1]?p.away:p.home]:[p.away,p.home];return `<section class="card"><h3>${safe(p.bowl)} · ${result?'Confirmed matchup':'Opponent pending'}</h3></section><div class="grid">${opponents.map(s=>playoffMarket(playoffLine(s,p.bye),p.bowl+' · neutral field')).join('')}</div>`;}).join('')
+ +card('How these odds are built',`<p>Full-season points scored and allowed provide a shrunk starting rating. Available Weeks 9–15 finals adjust offense and defense for opponent strength, with recent games weighted more heavily and margins capped at 28. Strength blends 35% scoring-model rating and 65% seed-based résumé prior. Force wins are excluded; fair sims and interrupted games are discounted. The season baseline and recent finals overlap, so this is a heuristic league projection rather than a calibrated betting model.</p><p>Home field is worth 2.5 points. Game-margin uncertainty is 18 points. CPU teams outside the explicit active-user roster receive a seven-point discount. West Virginia is a user and receives no CPU discount. Michigan and Miami have limited season data. Reported first-round winners advance with certainty; eliminated teams have zero title probability. Remaining games follow the supplied bracket.</p><p>The semifinal pairings are Rose/Peach and Fiesta/Sugar. The championship is at Caesars Superdome in New Orleans.</p>`);
 }

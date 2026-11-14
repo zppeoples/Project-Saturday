@@ -9,6 +9,7 @@ const teamBranding = {
   "Arizona State": {color: '#8c1d40', alternate: '#ffc627', logo: 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/9.png'},
   "Duke": {color: '#00539b', alternate: '#ffffff', logo: 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/150.png'},
   "Georgia Tech": {color: '#b3a369', alternate: '#ffffff', logo: 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/59.png'},
+  "West Virginia": {color: '#002855', alternate: '#eaaa00', logo: 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/277.png'},
   "Houston": {color: '#c8102e', alternate: '#ffffff', logo: 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/248.png'},
   "Syracuse": {color: '#ff431b', alternate: '#000e54', logo: 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/183.png'},
   "Illinois": {color: '#ff5f05', alternate: '#13294b', logo: 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/356.png'},
@@ -21,17 +22,21 @@ const teamBranding = {
   "Wisconsin": {color: '#a00000', alternate: '#ffffff', logo: 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/275.png'},
   "Minnesota": {color: '#5e0a2f', alternate: '#fab41c', logo: 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/135.png'},
 };
-const isActiveTeam = team => Object.hasOwn(teamBranding, team);
+// League membership is explicit; a missing logo must never hide a user team.
+const activeUserTeams = new Set(['Utah','Mississippi State','Boise State','Arizona State','Duke','Georgia Tech','Houston','Syracuse','Illinois','Maryland','Pittsburgh','Rutgers','Colorado','TCU','UCF','Wisconsin','Minnesota','West Virginia']);
+const isActiveTeam = team => activeUserTeams.has(team);
 const activeStandings = standings => Object.fromEntries(Object.entries(standings)
   .map(([conference, rows]) => [conference, rows.filter(([team]) => isActiveTeam(team))]));
 
 const seed = {
-  week: 14,
+  week: 15,
   standingsWeek: 13,
-  weekLabels: {14: 'Conference Championships'},
+  weekLabels: {14: 'Conference Championships', 15: 'Playoff First Round', 16: 'Playoff Quarterfinals'},
   standings: activeStandings(conf),
   rankings: {},
   stories: [
+    {id: '2027-r1-wvu', week: 15, type: 'Featured', title: 'Mountaineers survive in Tempe', body: 'No. 11 West Virginia eliminates No. 6 Arizona State 16–14 in a user-versus-user playoff opener. A. Simmons threw for 191 yards and a touchdown; S. Hamilton caught seven passes for 90 yards and a score. West Virginia advances to face No. 3 Boise State in the Fiesta Bowl.'},
+    {id: '2027-r1-houston', week: 15, type: 'Headline', title: 'Houston rolls into the Rose Bowl', body: 'No. 5 Houston beats No. 12 Michigan 35–9. N. Marsh caught five passes for 143 yards and all three passing touchdowns. Houston totaled 241 passing yards and 243 rushing yards from the supplied player stats and advances to face No. 4 Georgia Tech.'},
     {id: '2027-american-champions', week: 14, type: 'Featured', title: 'Utah takes the American crown', body: 'Utah defeated Boise State 47–14 in the American Championship. The Utes followed their 38–7 Week 13 win over Colorado with a 33-point victory in the title game.'},
     {id: '2027-acc-champions', week: 14, type: 'Headline', title: 'Mississippi State wins the ACC', body: 'Mississippi State defeated Syracuse 28–7 in the ACC Championship, following a 56–13 win over Ole Miss in Week 13.'},
     {id: '2027-big12-champions', week: 14, type: 'Headline', title: 'Houston claims the Big 12', body: 'Houston defeated Pittsburgh 31–21 in the Big 12 Championship after beating Kansas State 28–10 in Week 13.'},
@@ -41,7 +46,14 @@ const seed = {
     ([conference, away, home, kickoff, label, scores, resultMethod, overtime = false, siteUnconfirmed = false], i) => ({
       id: `2027-w${week}-${i + 1}`, week: Number(week), conference, away, home, kickoff, label, scores, resultMethod, overtime, siteUnconfirmed,
       featured: week === '14' || (week === '11' && ['Arizona State', 'Baylor', 'UCF'].includes(away)),
-    }))),
+    }))).concat([
+      {id:'2027-r1-michigan-houston',week:15,conference:'Big 12',away:'Michigan',home:'Houston',kickoff:'',label:'Playoff First Round · USER vs CPU',scores:[9,35],featured:true},
+      {id:'2027-r1-wvu-asu',week:15,conference:'American',away:'West Virginia',home:'Arizona State',kickoff:'',label:'Playoff First Round · USER vs USER',scores:[16,14],featured:true},
+      {id:'2027-r1-miami-syracuse',week:15,conference:'ACC',away:'Miami',home:'Syracuse',kickoff:'Kickoff TBD',label:'Playoff First Round',scores:null},
+      {id:'2027-r1-illinois-tcu',week:15,conference:'Big 12',away:'Illinois',home:'TCU',kickoff:'Kickoff TBD',label:'Playoff First Round · USER vs USER',scores:null},
+      {id:'2027-qf-houston-gt',week:16,conference:'ACC',away:'Houston',home:'Georgia Tech',kickoff:'Kickoff TBD',label:'Rose Bowl · USER vs USER',siteUnconfirmed:true,scores:null},
+      {id:'2027-qf-wvu-boise',week:16,conference:'American',away:'West Virginia',home:'Boise State',kickoff:'Kickoff TBD',label:'Fiesta Bowl · USER vs USER',siteUnconfirmed:true,scores:null},
+    ]),
 };
 
 let leagueData = seed;
@@ -129,7 +141,7 @@ function teamProfileStats(team, conference) {
           <div><dt>${safe(label)}</dt><dd>${safe(rows[team][column].toLocaleString('en-US'))}</dd></div>`).join('')}
         </dl>
       </details>`).join('');
-    return `<p class="muted">${safe(snapshot.label || weekName(snapshot.week))} · Team stats</p>${groups}`;
+    return `<p class="muted">${safe(snapshot.label || weekName(snapshot.week))} · Team stats</p>${groups}${teamGameStats(team)}`;
   }
   const legacy = stats[team];
   if (!legacy) return '<p class="muted">Team stats are pending.</p>';
@@ -145,7 +157,7 @@ function teamProfileStats(team, conference) {
 
 function standingsDate() {
   const week = leagueData.standingsWeek;
-  return `<p class="muted">Last verified standings · ${safe(weekName(week))}</p>`;
+  return `<p class="muted">Conference standings last verified · ${safe(weekName(week))}. Overall records include supplied playoff selection records and reported finals.</p>`;
 }
 
 function gameTitle(game) {
@@ -171,6 +183,7 @@ function matches(games, showResponses = false) {
   return games.map(game => `<div class="match">
     <div class="tag">${safe(game.conference)}${game.label ? ' · ' + safe(game.label) : ''}${game.resultMethod ? ' · ' + safe(game.resultMethod) : ''}</div>
     <strong class="match-teams">${teamBadge(game.away)} <span>${game.siteUnconfirmed ? 'vs' : '@'}</span> ${teamBadge(game.home)}</strong><small>${safe(gameResult(game))}</small>
+    ${gameBoxScore(game)}
     ${showResponses ? responses.filter(response => response.gameId === game.id).map(responseCard).join('') : ''}
   </div>`).join('');
 }
@@ -239,6 +252,7 @@ let rankingWeek = seed.week;
 function rankingView(compact) {
   const week = compact ? leagueData.week : rankingWeek;
   const official = leagueData.rankings[week] || [];
+  if (!official.length && week >= 14) return currentBCSView(week, compact);
   const provisional = !official.length && week === 13;
   const ranked = provisional ? week13Poll : official.map(team => ({team}));
   const weeks = [...new Set([leagueData.week, 13, ...Object.keys(leagueData.rankings).map(Number)])].sort((a, b) => b - a);
@@ -247,9 +261,10 @@ function rankingView(compact) {
   if (ranked.length) {
     const visible = compact ? ranked.slice(0, 5) : ranked;
     return selector + `<div class="tag">${safe(weekName(week))} · ${provisional ? 'Provisional PP BCS™' : 'Commissioner rankings'}</div>
-      ${provisional ? '<p class="muted">Week 13 results updated. Uses the last verified standings snapshot and available Weeks 9–13 finals; conference championship results are excluded.</p>' : ''}
+      ${provisional ? '<p class="muted">Week 13 results updated. West Virginia was omitted from the original committee ballot and is listed below pending a historical ballot correction. Uses the last verified standings snapshot and available Weeks 9–13 finals; conference championship results are excluded.</p>' : ''}
       <ol>${visible.map(({team, score}) => `<li>${teamButton(team)}${!compact && provisional
         ? ` <small>· ${score.toFixed(1)} BCS</small>` : ''}</li>`).join('')}</ol>
+      ${!compact && provisional ? `<p>${teamButton('West Virginia')} · Historical ballot points pending; not assigned an invented rank.</p>` : ''}
       ${compact ? '<button onclick="go(\'Rankings\')">View rankings →</button>' : ''}
       ${!compact && provisional ? `<details><summary>How this provisional poll was calculated</summary>
         <p>The poll is 50% committee and 50% computer. The computer uses the workbook's five category weights.
@@ -837,4 +852,4 @@ async function start() {
   render();
 }
 
-start();
+// index.html starts the app after all data and poll scripts load.

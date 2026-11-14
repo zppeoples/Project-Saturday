@@ -116,3 +116,16 @@ body[data-team-profile] {
 /* Playoff markets */
 .playoff-market-head,.playoff-market-row{display:grid;grid-template-columns:minmax(95px,1fr) minmax(85px,.8fr) minmax(75px,.7fr);gap:8px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
 .playoff-market-head{color:var(--muted);font-size:11px;text-transform:uppercase}.playoff-market-row span{text-align:right;font-variant-numeric:tabular-nums}.playoff-market-row small{display:block}.playoff-total{text-align:right}.playoff-scroll{overflow-x:auto}.playoff-scroll table{min-width:360px}.playoff-game h2{font-size:23px}.playoff-market-head span:not(:first-child){text-align:right}
+/* Player box scores and PP BCS points stay scrollable within mobile cards. */
+.data-scroll { max-width:100%; overflow-x:auto; overscroll-behavior-x:contain; margin:10px 0; }
+.data-scroll table { width:100%; font-variant-numeric:tabular-nums; }
+.data-scroll th,.data-scroll td { white-space:nowrap; }
+.data-scroll th[scope=row] { text-align:left; color:#fff; }
+.box-category summary,.game-box>summary,.bcs-method>summary { cursor:pointer; padding:11px 0; color:var(--blue); }
+.box-category { border-top:1px solid var(--line); }
+.game-box { margin-top:10px; }
+.bcs-table td:first-child { font-weight:900; }
+.bcs-table td:nth-child(4) { color:#ffb9be; }
+.bcs-method { border-top:1px solid var(--line); margin-top:12px; }
+@media(max-width:500px){.data-scroll table{font-size:13px}.data-scroll th,.data-scroll td{padding:9px 8px}.game-box h3{font-size:18px}}
+.grid > .card { min-width:0; }
